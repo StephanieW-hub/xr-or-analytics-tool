@@ -17,85 +17,118 @@ uploaded_files = st.file_uploader(
     accept_multiple_files=True
 )
 
+def load_file(file):
+    if file.name.endswith(".csv"):
+        return pd.read_csv(file)
+    return pd.read_excel(file)
+
+def clean_data(df):
+    df = df.loc[:, ~df.columns.str.contains("^Unnamed")]
+    df.columns = df.columns.str.strip().str.upper().str.replace(" ", "_")
+    return df
+
+def count_event(df, keyword):
+    if "EVENT_TYPE" in df.columns:
+        return df["EVENT_TYPE"].astype(str).str.upper().str.contains(keyword, na=False).sum()
+    return 0
+
 if uploaded_files:
     dataframes = []
 
     for file in uploaded_files:
-        if file.name.endswith(".csv"):
-            df = pd.read_csv(file)
-        else:
-            df = pd.read_excel(file)
-
-        df = df.loc[:, ~df.columns.str.contains("^Unnamed")]
+        df = load_file(file)
+        df = clean_data(df)
         df["SOURCE_FILE"] = file.name
-
         dataframes.append(df)
 
     combined_df = pd.concat(dataframes, ignore_index=True)
 
     st.success(f"{len(uploaded_files)} file(s) loaded successfully!")
 
-    st.subheader("Combined Data Preview")
-    st.dataframe(combined_df)
+    st.subheader("Executive Dashboard Summary")
 
-    st.markdown("---")
-    st.subheader("Dashboard Summary")
+    total_cases = len(combined_df)
 
-    col1, col2, col3, col4 = st.columns(4)
+    callback_cases = 0
+    if "CALLBACK" in combined_df.columns:
+        callback_cases = combined_df["CALLBACK"].astype(str).str.upper().eq("YES").sum()
+
+    staff_shortages = count_event(combined_df, "STAFF")
+    cancelled_cases = count_event(combined_df, "CANCEL")
+    add_on_cases = count_event(combined_df, "ADD")
+
+    avg_case_minutes = "N/A"
+    if "CASE_MINUTES" in combined_df.columns:
+        avg_case_minutes = round(pd.to_numeric(combined_df["CASE_MINUTES"], errors="coerce").mean(), 1)
+
+    col1, col2, col3, col4, col5 = st.columns(5)
 
     with col1:
-        st.metric("Total Cases", len(combined_df))
+        st.metric("Total Cases", total_cases)
 
     with col2:
-        if "SURGEON" in combined_df.columns:
-            st.metric("Unique Surgeons", combined_df["SURGEON"].nunique())
-        else:
-            st.metric("Unique Surgeons", "N/A")
+        st.metric("Callbacks", callback_cases)
 
     with col3:
-        if "PROCEDURE" in combined_df.columns:
-            st.metric("Unique Procedures", combined_df["PROCEDURE"].nunique())
-        else:
-            st.metric("Unique Procedures", "N/A")
+        st.metric("Staff Shortages", staff_shortages)
 
     with col4:
-        if "CALLBACK" in combined_df.columns:
-            callback_count = combined_df["CALLBACK"].astype(str).str.upper().eq("YES").sum()
-            st.metric("Callback Cases", callback_count)
+        st.metric("Cancelled Cases", cancelled_cases)
+
+    with col5:
+        st.metric("Avg Case Minutes", avg_case_minutes)
+
+    st.markdown("---")
+
+    st.subheader("Operational Analytics")
+
+    chart_col1, chart_col2 = st.columns(2)
+
+    with chart_col1:
+        if "DAY_OF_THE_WEEK" in combined_df.columns:
+            st.write("Cases by Day of Week")
+            day_counts = combined_df["DAY_OF_THE_WEEK"].value_counts()
+            st.bar_chart(day_counts)
+
+    with chart_col2:
+        if "EQUIPMENT_USAGE" in combined_df.columns:
+            st.write("Equipment Utilization")
+            equipment_counts = combined_df["EQUIPMENT_USAGE"].value_counts().head(10)
+            st.bar_chart(equipment_counts)
+
+    chart_col3, chart_col4 = st.columns(2)
+
+    with chart_col3:
+        if "SURGEON" in combined_df.columns:
+            st.write("Top Surgeons by Case Volume")
+            surgeon_counts = combined_df["SURGEON"].value_counts().head(10)
+            st.bar_chart(surgeon_counts)
+
+    with chart_col4:
+        if "EVENT_TYPE" in combined_df.columns:
+            st.write("Event Type Trends")
+            event_counts = combined_df["EVENT_TYPE"].value_counts().head(10)
+            st.bar_chart(event_counts)
+
+    st.markdown("---")
+
+    st.subheader("Ask XR OR Analytics")
+
+    question = st.text_input(
+        "Ask a question about the uploaded OR data",
+        placeholder="Example: What staffing risks do you see?"
+    )
+
+    if st.button("Analyze"):
+        if question:
+            st.write("AI analysis will be connected in the next step using OpenAI.")
         else:
-            st.metric("Callback Cases", "N/A")
+            st.warning("Please enter a question first.")
 
     st.markdown("---")
-    st.subheader("Quick Analysis")
 
-    col1, col2, col3 = st.columns(3)
-
-    with col1:
-        if st.button("Operational Trends"):
-            st.write("Operational trend analysis will be added in the next version.")
-
-    with col2:
-        if st.button("Staffing Analysis"):
-            if "XR_STAFF_PULLED" in combined_df.columns:
-                staff_pulled = combined_df["XR_STAFF_PULLED"].astype(str).str.upper().eq("YES").sum()
-                st.write(f"Staff were pulled in {staff_pulled} case(s).")
-            elif "XR STAFF PULLED" in combined_df.columns:
-                staff_pulled = combined_df["XR STAFF PULLED"].astype(str).str.upper().eq("YES").sum()
-                st.write(f"Staff were pulled in {staff_pulled} case(s).")
-            else:
-                st.write("Staff pulled column was not found.")
-
-    with col3:
-        if st.button("Executive Recommendations"):
-            st.write("Executive recommendations will be added in the AI phase.")
-
-    st.markdown("---")
-    st.subheader("Future Dashboard Features")
-
-    st.write("Case Volume Trends")
-    st.write("Staffing Heat Maps")
-    st.write("Equipment Utilization")
-    st.write("AI Operational Insights")
+    st.subheader("Combined Data Preview")
+    st.dataframe(combined_df)
 
 else:
     st.info("Upload one or more CSV or Excel files to begin analysis.")
