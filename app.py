@@ -13,7 +13,7 @@ st.markdown("---")
 
 uploaded_files = st.file_uploader(
     "Upload OR Data Files",
-    type=["csv"],
+    type=["csv", "xlsx"],
     accept_multiple_files=True
 )
 
@@ -21,12 +21,12 @@ if uploaded_files:
     dataframes = []
 
     for file in uploaded_files:
-        df = pd.read_csv(file)
+        if file.name.endswith(".csv"):
+            df = pd.read_csv(file)
+        else:
+            df = pd.read_excel(file)
 
-        # Remove blank Excel columns
         df = df.loc[:, ~df.columns.str.contains("^Unnamed")]
-
-        # Add source file name
         df["SOURCE_FILE"] = file.name
 
         dataframes.append(df)
@@ -79,8 +79,11 @@ if uploaded_files:
             if "XR_STAFF_PULLED" in combined_df.columns:
                 staff_pulled = combined_df["XR_STAFF_PULLED"].astype(str).str.upper().eq("YES").sum()
                 st.write(f"Staff were pulled in {staff_pulled} case(s).")
+            elif "XR STAFF PULLED" in combined_df.columns:
+                staff_pulled = combined_df["XR STAFF PULLED"].astype(str).str.upper().eq("YES").sum()
+                st.write(f"Staff were pulled in {staff_pulled} case(s).")
             else:
-                st.write("XR_STAFF_PULLED column was not found.")
+                st.write("Staff pulled column was not found.")
 
     with col3:
         if st.button("Executive Recommendations"):
@@ -95,4 +98,4 @@ if uploaded_files:
     st.write("AI Operational Insights")
 
 else:
-    st.info("Upload one or more CSV files to begin analysis.")
+    st.info("Upload one or more CSV or Excel files to begin analysis.")
