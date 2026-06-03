@@ -86,9 +86,25 @@ if uploaded_files:
 
     with chart_col1:
         if "DAY_OF_THE_WEEK" in combined_df.columns:
-            st.write("Cases by Day of Week")
-            day_counts = combined_df["DAY_OF_THE_WEEK"].value_counts()
-            st.bar_chart(day_counts)
+    st.write("Cases by Day of Week")
+
+    day_order = [
+        "Monday",
+        "Tuesday",
+        "Wednesday",
+        "Thursday",
+        "Friday",
+        "Saturday",
+        "Sunday"
+    ]
+
+    day_counts = (
+        combined_df["DAY_OF_THE_WEEK"]
+        .value_counts()
+        .reindex(day_order, fill_value=0)
+    )
+
+    st.bar_chart(day_counts)
 
     with chart_col2:
         if "EQUIPMENT_USAGE" in combined_df.columns:
