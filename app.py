@@ -108,12 +108,13 @@ if uploaded_files:
             ]
 
             day_counts = (
-                combined_df["DAY_OF_THE_WEEK"]
-                .astype(str)
-                .str.strip()
-                .value_counts()
-                .reindex(day_order, fill_value=0)
-            )
+    combined_df["DAY_OF_THE_WEEK"]
+    .astype(str)
+    .str.strip()
+    .str.title()
+    .value_counts()
+    .reindex(day_order, fill_value=0)
+)
 
             st.bar_chart(day_counts)
         else:
