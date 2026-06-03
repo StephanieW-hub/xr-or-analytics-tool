@@ -116,9 +116,11 @@ if uploaded_files:
     .reindex(day_order, fill_value=0)
 )
 
-            st.bar_chart(day_counts)
-        else:
-            st.info("DAY_OF_THE_WEEK column not found.")
+day_chart = pd.DataFrame({
+    "Cases": day_counts
+})
+
+st.bar_chart(day_chart)
 
     with chart_col2:
         if "EQUIPMENT_USAGE" in combined_df.columns:
