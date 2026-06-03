@@ -18,14 +18,24 @@ uploaded_files = st.file_uploader(
 )
 
 def load_file(file):
-    if file.name.endswith(".csv"):
+    if file.name.lower().endswith(".csv"):
         return pd.read_csv(file)
     return pd.read_excel(file)
 
 def clean_data(df):
-    df = df.loc[:, ~df.columns.str.contains("^Unnamed")]
-    df.columns = df.columns.str.strip().str.upper().str.replace(" ", "_")
+    df = df.loc[:, ~df.columns.astype(str).str.contains("^Unnamed")]
+    df.columns = (
+        df.columns.astype(str)
+        .str.strip()
+        .str.upper()
+        .str.replace(" ", "_")
+    )
     return df
+
+def count_yes(df, column_name):
+    if column_name in df.columns:
+        return df[column_name].astype(str).str.upper().eq("YES").sum()
+    return 0
 
 def count_event(df, keyword):
     if "EVENT_TYPE" in df.columns:
@@ -48,18 +58,17 @@ if uploaded_files:
     st.subheader("Executive Dashboard Summary")
 
     total_cases = len(combined_df)
-
-    callback_cases = 0
-    if "CALLBACK" in combined_df.columns:
-        callback_cases = combined_df["CALLBACK"].astype(str).str.upper().eq("YES").sum()
-
+    callback_cases = count_yes(combined_df, "CALLBACK")
     staff_shortages = count_event(combined_df, "STAFF")
     cancelled_cases = count_event(combined_df, "CANCEL")
     add_on_cases = count_event(combined_df, "ADD")
 
-    avg_case_minutes = "N/A"
     if "CASE_MINUTES" in combined_df.columns:
-        avg_case_minutes = round(pd.to_numeric(combined_df["CASE_MINUTES"], errors="coerce").mean(), 1)
+        avg_case_minutes = round(
+            pd.to_numeric(combined_df["CASE_MINUTES"], errors="coerce").mean(), 1
+        )
+    else:
+        avg_case_minutes = "N/A"
 
     col1, col2, col3, col4, col5 = st.columns(5)
 
@@ -86,45 +95,85 @@ if uploaded_files:
 
     with chart_col1:
         if "DAY_OF_THE_WEEK" in combined_df.columns:
-    st.write("Cases by Day of Week")
+            st.write("Cases by Day of Week")
 
-    day_order = [
-        "Monday",
-        "Tuesday",
-        "Wednesday",
-        "Thursday",
-        "Friday",
-        "Saturday",
-        "Sunday"
-    ]
+            day_order = [
+                "Monday",
+                "Tuesday",
+                "Wednesday",
+                "Thursday",
+                "Friday",
+                "Saturday",
+                "Sunday"
+            ]
 
-    day_counts = (
-        combined_df["DAY_OF_THE_WEEK"]
-        .value_counts()
-        .reindex(day_order, fill_value=0)
-    )
+            day_counts = (
+                combined_df["DAY_OF_THE_WEEK"]
+                .astype(str)
+                .str.strip()
+                .value_counts()
+                .reindex(day_order, fill_value=0)
+            )
 
-    st.bar_chart(day_counts)
+            st.bar_chart(day_counts)
+        else:
+            st.info("DAY_OF_THE_WEEK column not found.")
 
     with chart_col2:
         if "EQUIPMENT_USAGE" in combined_df.columns:
             st.write("Equipment Utilization")
-            equipment_counts = combined_df["EQUIPMENT_USAGE"].value_counts().head(10)
+
+            equipment_counts = (
+                combined_df["EQUIPMENT_USAGE"]
+                .astype(str)
+                .str.strip()
+                .replace("None", pd.NA)
+                .dropna()
+                .value_counts()
+                .head(10)
+            )
+
             st.bar_chart(equipment_counts)
+        else:
+            st.info("EQUIPMENT_USAGE column not found.")
 
     chart_col3, chart_col4 = st.columns(2)
 
     with chart_col3:
         if "SURGEON" in combined_df.columns:
             st.write("Top Surgeons by Case Volume")
-            surgeon_counts = combined_df["SURGEON"].value_counts().head(10)
+
+            surgeon_counts = (
+                combined_df["SURGEON"]
+                .astype(str)
+                .str.strip()
+                .replace("None", pd.NA)
+                .dropna()
+                .value_counts()
+                .head(10)
+            )
+
             st.bar_chart(surgeon_counts)
+        else:
+            st.info("SURGEON column not found.")
 
     with chart_col4:
         if "EVENT_TYPE" in combined_df.columns:
             st.write("Event Type Trends")
-            event_counts = combined_df["EVENT_TYPE"].value_counts().head(10)
+
+            event_counts = (
+                combined_df["EVENT_TYPE"]
+                .astype(str)
+                .str.strip()
+                .replace("None", pd.NA)
+                .dropna()
+                .value_counts()
+                .head(10)
+            )
+
             st.bar_chart(event_counts)
+        else:
+            st.info("EVENT_TYPE column not found.")
 
     st.markdown("---")
 
@@ -137,7 +186,7 @@ if uploaded_files:
 
     if st.button("Analyze"):
         if question:
-            st.write("AI analysis will be connected in the next step using OpenAI.")
+            st.info("OpenAI-powered analysis will be connected in the next step.")
         else:
             st.warning("Please enter a question first.")
 
